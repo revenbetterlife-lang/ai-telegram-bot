@@ -1,0 +1,63 @@
+{
+  "name": "AI Telegram Bot (n8n + Gemini)",
+  "nodes": [
+    {
+      "parameters": { "updates": ["message"] },
+      "id": "1",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [240, 340],
+      "credentials": { "telegramApi": { "id": "PASTE_CREDENTIAL_ID", "name": "Telegram Bot account" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"contents\": [{ \"parts\": [{ \"text\": \"{{ $json.message.text }}\" }] }] }",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Ask Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 340]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the reply from the Gemini response, keeping the chat id.\nconst reply = $json.candidates[0].content.parts.map(p => p.text).join('').trim();\nconst chatId = $('Telegram Trigger').item.json.message.chat.id;\nreturn [{ json: { chat_id: chatId, reply } }];"
+      },
+      "id": "3",
+      "name": "Build Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 340]
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "4",
+      "name": "Send Reply (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [960, 340],
+      "credentials": { "telegramApi": { "id": "PASTE_CREDENTIAL_ID", "name": "Telegram Bot account" } }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Ask Gemini", "type": "main", "index": 0 }]] },
+    "Ask Gemini": { "main": [[{ "node": "Build Reply", "type": "main", "index": 0 }]] },
+    "Build Reply": { "main": [[{ "node": "Send Reply (Telegram)", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {}
+}
